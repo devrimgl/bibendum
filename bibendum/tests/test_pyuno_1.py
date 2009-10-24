@@ -22,6 +22,12 @@ if model.getImplementationName()=='SwXTextDocument':
 	     ("bold", {'CharWeight': 150.}),
 	     (" and this ", {}),
 	     ("italics", {'CharPosture': 2}),
+	     (", and this ", {}),
+	     ("both", {'CharPosture': 2, 'CharWeight': 150.}),
+	     (", ", {}),
+	     ("underlined", {"CharUnderline": 1}),
+	     (", ", {}),
+	     ("and various types of CaseMaps", {"CharCaseMap": 4}),
 	     (".", {})]
 	for ti in t:
 		c, s = ti
@@ -31,3 +37,4 @@ if model.getImplementationName()=='SwXTextDocument':
 		cur.setString(c)
 		for k in s.keys():
 			cur.setPropertyValue(k, s[k])
+		
