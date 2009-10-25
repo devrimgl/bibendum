@@ -24,30 +24,30 @@
 Bibendum's developer documentation
 ##################################
 
-This part of the documentation explains the architecture of the Bibendum Reference Manager source code. The code is organized is different submodules:
+This part of the documentation explains the architecture of the Bibendum Reference Manager source code. The code is organized is different submodules.
 
-.. toctree::
-   :maxdepth: 2
+.. contents:: :depth: 2
+
+:mod:`bBase`
+=====================
+
+.. automodule:: bBase
+   :members:
 
 .. automodule:: bBibFormat
    :members:
-   :undoc-members:
 
 .. automodule:: bDatabase
    :members:
-   :undoc-members:
 
 .. automodule:: bStyle
    :members:
-   :undoc-members:
 
 :mod:`bTextProcessor`
 =====================
 
 .. automodule:: bTextProcessor._generic
    :members:
-   :undoc-members:
 
 .. automodule:: bTextProcessor.openoffice
    :members:
-   :undoc-members:

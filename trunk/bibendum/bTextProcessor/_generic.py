@@ -3,7 +3,7 @@
 #-------------------------------------------------------------------------
 #    Bibendum's Text Processor generic module
 #    
-#    _generic.py,
+#    bTextProcessor/_generic.py,
 #    this file is part of the Bibendum Reference Manager project
 #    
 #    Etienne Gaudrain <egaudrain@gmail.com>, 2009-10-23
@@ -39,3 +39,5 @@ class bridge:
 		"""Establish connection with the text processor."""
 		pass
 	
+	def insertField(self, properties, text):
+		pass

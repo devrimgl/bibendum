@@ -1,4 +1,5 @@
 import uno
+import time
 
 localContext = uno.getComponentContext()
 resolver = localContext.ServiceManager.createInstanceWithContext("com.sun.star.bridge.UnoUrlResolver", localContext )
@@ -45,14 +46,37 @@ def getFieldContent(name):
 	return tfm.Content
 
 if model.getImplementationName()=='SwXTextDocument':
-
-	f = createCustomField("MyField3", "Bah il est ou?")
+	
+	t = [("Here is a test for formatting capabilities. Let's make that ", {}),
+	     ("bold", {'CharWeight': 150.}),
+	     (" and this ", {}),
+	     ("italics", {'CharPosture': 2}),
+	     (", and this ", {}),
+	     ("both", {'CharPosture': 2, 'CharWeight': 150.}),
+	     (", ", {}),
+	     ("underlined", {"CharUnderline": 1}),
+	     (", ", {}),
+	     ("and various types of CaseMaps", {"CharCaseMap": 4}),
+	     (".", {})]
+	
+	n = int( time.clock())
+	
+	f = createCustomField("MyField %d" % n, "".join([x[0] for x in t]))
 	
 	if f is not None:
+		
 		model.Text.insertTextContent(model.Text.getEnd(), f, False)
 		
-	updateField("MyField1", "Modified")
-	print getFieldContent("MyField2")
+		cur = model.Text.getEnd()
+		cur.setAllPropertiesToDefault()
+		cur.goLeft(4, False)
+		
+		cur.setPropertyValue('CharWeight', 150.)
+		
+		
+		
+	#~ updateField("MyField1", "Modified")
+	#~ print getFieldContent("MyField2")
 
 
 

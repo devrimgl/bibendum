@@ -3,7 +3,7 @@
 #-------------------------------------------------------------------------
 #    Bibendum's Text Processor OpenOffice.org module
 #    
-#    openoffice.py,
+#    bTextProcessor/openoffice.py,
 #    this file is part of the Bibendum Reference Manager project
 #    
 #    Etienne Gaudrain <egaudrain@gmail.com>, 2009-10-23
@@ -34,11 +34,35 @@ import uno
 class bridge(_generic.bridge):
 	"""Communication with OpenOffice.org Writer."""
 	
-	def __init__(self):
-		"""The __init__ method of the specific implementation should establish connection with the text processor."""
-		pass
+	def __init__(self, options=None):
+		localContext = uno.getComponentContext()
+		self.resolver = localContext.ServiceManager.createInstanceWithContext("com.sun.star.bridge.UnoUrlResolver", localContext )
+		
+		if options is not None:
+			self.connect(options)
 	
-	def connect(self, options=None):
-		"""Establish connection with the text processor."""
-		pass
+	def connect(self, options):
+		"""Initiates a connection with the text processor. *options* is ``dict`` with the following entries:
+		
+		  * *'type'*: is either "pipe" or "socket"
+		  * if *'type'* is "pipe", an item *'name'* containing the pipe name should be provided
+		  * if *'type'* is socket, *'host'* and *'port'* should be provided
+		"""
+		
+		self.options = options
+		
+		self.unourl = "uno:%s" % options['type']
+		if options['type']=='pipe':
+			self.unourl += ",name=%s" % options['name']
+		elif options['type']=='socket':
+			self.unourl += ",host=%s,port=%s" % (options['host'], options['port'])
+		self.unourl += ";urp;StarOffice.ComponentContext"
+		
+		try:
+			ctx = self.resolver.resolve( self.unourl )
+			self.smgr = ctx.ServiceManager
+		except UnoException as e:
+			return False, e
+		else:
+			return True, None
 	
