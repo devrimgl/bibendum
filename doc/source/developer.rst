@@ -26,10 +26,10 @@ Bibendum's developer documentation
 
 This part of the documentation explains the architecture of the Bibendum Reference Manager source code. The code is organized is different submodules.
 
-.. contents:: :depth: 2
+.. contents:: :depth: 3
 
-:mod:`bBase`
-=====================
+:mod:`bBase` -- Base and utility classes
+========================================
 
 .. automodule:: bBase
    :members:
@@ -43,11 +43,17 @@ This part of the documentation explains the architecture of the Bibendum Referen
 .. automodule:: bStyle
    :members:
 
-:mod:`bTextProcessor`
-=====================
+:mod:`bTextProcessor` -- Interaction with text processors
+=========================================================
+
+:class:`bTextProcessor._generic` -- Abstract class
+--------------------------------------------------
 
 .. automodule:: bTextProcessor._generic
    :members:
+
+:class:`bTextProcessor.openoffice` -- Specific implementation for OpenOffice.org
+--------------------------------------------------------------------------------
 
 .. automodule:: bTextProcessor.openoffice
    :members:
