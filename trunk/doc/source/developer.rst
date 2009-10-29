@@ -57,3 +57,25 @@ This part of the documentation explains the architecture of the Bibendum Referen
 
 .. automodule:: bTextProcessor.openoffice
    :members:
+
+:mod:`bCitationFinder` -- Methods to find in-text citations
+===========================================================
+
+:class:`bCitationFinder._generic` -- Abstract class
+---------------------------------------------------
+
+.. automodule:: bCitationFinder._generic
+   :members:
+
+:class:`bCitationFinder.natbib` -- Emulating LaTeX/BibTeX's natbib behaviour
+----------------------------------------------------------------------------
+
+.. automodule:: bCitationFinder.natbib
+   :members:
+
+:class:`bCitationFinder.plaintext` -- Find citations in plain text
+------------------------------------------------------------------
+
+.. automodule:: bCitationFinder.plaintext
+   :members:
+
