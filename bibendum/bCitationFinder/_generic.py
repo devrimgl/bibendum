@@ -58,3 +58,13 @@ class finder:
 	def findStyleDefinition(self):
 		raise NotImplementedError()
 	
+	def revertCitations(self, citation):
+		raise NotImplementedError()
+	
+	def revertReflist(self, reflist_options):
+		raise NotImplementedError()
+	
+	def revertStyleDefinition(self, style):
+		raise NotImplementedError()
+	
+

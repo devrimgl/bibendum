@@ -26,6 +26,73 @@
 #    
 #-------------------------------------------------------------------------
 
+LOWERCASE = 'çéáíóúýèàìòùỳêâîôûŷëäïöüÿẽãĩõũỹñøɨħåů'
+UPPERCASE = 'ÇÉÁÍÓÚÝÈÀÌÒÙỲÊÂÎÔÛŶËÄÏÖÜŸẼÃĨÕŨỸÑØƗĦÅŮ'
+
+class citation:
+	"""This is just a tiny wrapper that defines a citation in text.
+	
+	`properties` is expected to be a ``dict``. It can contain irrelevant properties. Only the applicable properties will be used.
+	
+	.. attribute:: cite_ref
+	   
+	   A list of reference ids as referenced in the Bibendum database, e.g. ``['vangeek:2001', 'smith:2005']``.
+	
+	.. attribute:: text
+	   
+	   The formatted text version of the citation. See :class:`bBase.text`.
+	
+	.. attribute:: type
+	   
+	   The type of citation:
+	   
+	   +-------+----------------------------+------------------------+
+	   | Value | Author-year example        | Numerical example      |
+	   +=======+============================+========================+
+	   | 't'   | van de Geek et al. (2001)  | van de Geek et al. [1] |
+	   +-------+----------------------------+------------------------+
+	   | 'p'   | (van de Geek et al., 2001) | [1]                    |
+	   +-------+----------------------------+------------------------+
+	   | 'i'   | van de Geek et al., 2001   | 1                      |
+	   +-------+----------------------------+------------------------+
+	   | 'y'   | 2001                       | 2001                   |
+	   +-------+----------------------------+------------------------+
+	   | 'a'   | van de Geek et al.         | van de Geek et al.     |
+	   +-------+----------------------------+------------------------+
+	   
+	   Two kinds of modifiers can be used:
+	   
+	   * Values can be in upper case to force the first letter to be upper case:
+	     
+	     ``'T'`` produces Van de Geek et al. (2001).
+	     
+	   * Values can be followed by `*` to force the expansion of all the author names:
+	     
+	     ``'t*'`` produces van de Geek, Smith and Baker (2001).
+	   
+	.. attribute:: search
+	   
+	   A ``dict`` telling how to search the database for this reference. `'search_type'`
+	   contains the type of search ('string'), and `'search_string'` contains the
+	   string provided to the search engine. See :mod:`bDatabase`.
+	
+	"""
+	
+	cite_ref = None
+	text     = None
+	type     = None
+	search   = None
+	
+	def __init__(self, properties=None):
+		if properties is not None:
+			for k in ['cite_ref', 'text', 'type']:
+				if properties.has_key(k):
+					self.__attr__[k] = properties[k]
+	
+
+
+#============================================================================================
+
 class text:
 	"""This class provides an abstraction for formatted text.
 	
@@ -43,6 +110,30 @@ class text:
 	   bBase.text('This is text', {'bold': True})
 	   bBase.text(['This is text ', 'in bold'], [{}, {'bold': True}])
 	   bBase.text([('The big ', {}), ('bold', {'bold': True}), (' text.', {})])
+	
+	Here are the handled styles and values:
+	
+	  +--------------+----------------------------------------------------+
+	  | Keyword      | Values                                             |
+	  +==============+====================================================+
+	  | `bold`       | `True` or `False`                                  |
+	  +--------------+----------------------------------------------------+
+	  | `italics`    | `True` or `False`                                  |
+	  +--------------+----------------------------------------------------+
+	  | `underline`  | `True` or `False`                                  |
+	  +--------------+----------------------------------------------------+
+	  | `case`       | 'normal', 'upper', 'lower', 'title' or 'smallcaps' |
+	  +--------------+----------------------------------------------------+
+	  | `color`      | RGB in hexa, e.g. 'ff0000'                         |
+	  +--------------+----------------------------------------------------+
+	  | `margin`     | (top, right, bottom, left), ``float`` in cm        |
+	  +--------------+----------------------------------------------------+
+	  | `indent`     | ``float`` in cm                                    |
+	  +--------------+----------------------------------------------------+
+	  | `char_style` | Style name for the charaters                       |
+	  +--------------+----------------------------------------------------+
+	  | `para_style` | Style name for the paragraph                       |
+	  +--------------+----------------------------------------------------+
 	
 	Note: the format is somewhat not practical but is handy for text processor that does not allow formatting variations inside fields.
 	
