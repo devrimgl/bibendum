@@ -27,7 +27,7 @@ if model.getImplementationName()=='SwXTextDocument':
 	     (", ", {}),
 	     ("underlined", {"CharUnderline": 1}),
 	     (", ", {}),
-	     ("and various types of CaseMaps", {"CharCaseMap": 4}),
+	     ("and various types of CaseMaps", {"CharCaseMap": 1}),
 	     (".", {})]
 	for ti in t:
 		c, s = ti

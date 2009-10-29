@@ -16,6 +16,8 @@ def createCustomField(name, content):
 	for m in masterNames:
 		if m[0:35] == 'com.sun.star.text.fieldmaster.User.':
 			masterUserNames.append(m)
+			print m
+			print model.TextFieldMasters.getByName(m).DependentTextFields
 	
 	tfmsU = [model.TextFieldMasters.getByName(x) for x in masterUserNames]
 	masterUserNames = [x[35:] for x in masterUserNames]
@@ -59,7 +61,7 @@ if model.getImplementationName()=='SwXTextDocument':
 	     ("and various types of CaseMaps", {"CharCaseMap": 4}),
 	     (".", {})]
 	
-	n = int( time.clock())
+	n = int( time.clock()*1000)
 	
 	f = createCustomField("MyField %d" % n, "".join([x[0] for x in t]))
 	
@@ -73,7 +75,7 @@ if model.getImplementationName()=='SwXTextDocument':
 		
 		cur.setPropertyValue('CharWeight', 150.)
 		
-		
+		print dir(cur)
 		
 	#~ updateField("MyField1", "Modified")
 	#~ print getFieldContent("MyField2")
