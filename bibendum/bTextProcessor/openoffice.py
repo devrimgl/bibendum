@@ -26,16 +26,24 @@
 #    
 #-------------------------------------------------------------------------
 
-import _generic
 import uno
 import re
 
+import bBase
+import bTextProcessor._generic
+
+from com.sun.star.text.ControlCharacter import PARAGRAPH_BREAK
+
+
 """This module is used to communicate with OpenOffice.org Writer using `PyUNO <http://udk.openoffice.org/python/python-bridge.html>`_."""
 
-class bridge(_generic.bridge):
+class bridge(bTextProcessor._generic.bridge):
 	"""Communication with OpenOffice.org Writer.
 	
 	.. automethod:: _getRealText
+	
+	.. automethod:: _setStyle
+	
 	"""
 	
 	def __init__(self, options=None):
@@ -116,27 +124,36 @@ class bridge(_generic.bridge):
 		
 		return real_txt
 	
-	def findCitations(self, regexp):
-		"""Returns a list of possible citations using the provided regular expression.
+	def findRegexp(self, regexp):
+		"""Returns a list of match using the provided regular expression.
 		Given the limitations of the regular expression engine in OOo, a text compatible
 		with cursor operation is first extracted, then Python regular expressions are used.
 		
-		Note: If *regexp* is a string, it will be compiled using the ``re.UNICODE`` option."""
+		Note 1: If *regexp* is a string, it will be compiled using the ``re.UNICODE`` option.
+		
+		Note 2: The match list is returned starting with the last one."""
 		
 		txt = self._getRealText()
 		
 		if type(regexp)==type(''):
 			regexp = re.compile(regexp, re.UNICODE)
 		
-		citations = list()
+		t_citations = dict()
 		for f in regexp.finditer(txt):
-			citations.append((f.group(), f.span()))
+			t_citations[f.span()[0]] = (f.group(), f.span())
+		
+		# Sort the citation list to start with the last one
+		keys = t_citations.keys()
+		keys.sort(None, None, True)
+		citations = list()
+		for k in keys:
+			citations.append( t_citations[k] )
 		
 		return citations
 	
 	def highlight(self, on, range=None):
-		"""Highlights (*on*=True) or not (*on*=False) the *range*. If a range was previously
-		highlighted it is set back to normal first. If no range is provided and *on*=False,
+		"""Highlights (`on=True`) or not (`on=False`) the *range*. If a range was previously
+		highlighted it is set back to normal first. If no range is provided and `on=False`,
 		any previous highlight is removed.
 		
 		Note: it is better to let the function manage the suppression since it restores user defined highlights."""
@@ -147,13 +164,14 @@ class bridge(_generic.bridge):
 		
 		# Restore Background
 		if self.highlighted_range is not None:
-			old_range, old_color = self.highlighted_range
-			c = self.doc.Text.createTextCursorByRange(self.doc.Text.getStart())
-			c.goRight(old_range[0], False)
-			c.goRight(old_range[1], True)
-			c.CharBackColor =  old_color
-			c.collapseToEnd()
-			c.setAllPropertiesToDefault()
+			for old_range, old_color in zip(self.highlighted_range[0], self.highlighted_range[1]):
+				c = self.doc.Text.createTextCursorByRange(old_range)
+				if old_color is not None and old_color>=0:
+					c.CharBackColor =  old_color
+				else:
+					c.CharBackColor = 0x00ffffff
+				c.collapseToEnd()
+				
 			
 			self.highlighted_range = None
 			
@@ -162,24 +180,235 @@ class bridge(_generic.bridge):
 			c = self.doc.getCurrentController().getViewCursor()
 			c.gotoRange(self.previous_view_cursor, False)
 		
+		# Apply the highlight if a range is provided (implies on=True)
 		if range is not None:
 			color = int('0x00'+self.highlight_color, 16)
-			c = self.doc.Text.createTextCursorByRange(self.doc.Text.getStart())
+			c = self.doc.Text.createTextCursor()
+			c.gotoStart(False)
 			c.goRight(range[0], False)
 			c.goRight(range[1]-range[0], True)
 			
-			old_color = c.CharBackColor
-			self.highlighted_range = (range, old_color)
+			# Save the current background values. Needs to split down to TextPortions
+			old_color = []
+			old_range = []
+			n = c.createEnumeration()
+			while n.hasMoreElements():
+				p = n.nextElement()
+				f = p.createEnumeration()
+				while f.hasMoreElements():
+					t = f.nextElement()
+					old_color.append(t.CharBackColor)
+					old_range.append(t)
+			
+			self.highlighted_range = (old_range, old_color)
 			
 			c.CharBackColor = color
 			c.collapseToStart()
-			c.setAllPropertiesToDefault()
 			
 			# Save view cursor
 			v = self.doc.getCurrentController().getViewCursor()
 			self.previous_view_cursor = v.getStart()
 			v.gotoRange(c.getStart(), False)
+			
+	
+	def getAllFields(self):
+		"""Returns a `dict` of all Bibendum fields in the document, and the next available field index
+		(Bibendum fields are numbered to be unique). The keys are the field names and the values are `dict`\ s with
+		the following structure::
 		
+		   {'name': field_name, 'fieldmaster': OOoField, 'properties': properties, 'index'; index}
+		
+		The fields that have children, i.e. which have xref fields pointing to, also have a `children` key
+		with a list of children field names.
+		
+		The function also remove all the Bibendum masters with no dependent field.
+		"""
+		
+		OOoFieldPrefix = 'com.sun.star.text.fieldmaster.User.'
+		
+		masterNames = self.doc.TextFieldMasters.ElementNames
+		fields = dict()
+		indices = list()
+		for m in masterNames:
+			if m.startswith(OOoFieldPrefix+self.bibendumFieldPrefix):
+				
+				OOoField = self.doc.TextFieldMasters.getByName(m)
+				# Remove the field masters that are not used anymore
+				if OOoField.DependentTextFields is None or len(OOoField.DependentTextFields)==0:
+					OOoField.dispose()
+				
+				field_name = m.replace(OOoFieldPrefix, '', 1)
+				index, properties = self.decodeField(field_name)
+				indices.append(index)
+				fields[field_name] = {'name': field_name, 'fieldmaster': OOoField, 'properties': properties, 'index': index}
+		
+		for k, f in fields.iteritems():
+			if f['properties']['fieldtype']=='xref':
+				xref = f['properties']['fieldxref']
+				if not fields[xref].has_key('xref'):
+					fields[xref]['children'] = list()
+				fields[xref]['children'].append( k )
+		
+		if len(indices)==0:
+			i = 0
+		else:
+			i = max(indices)+1
+		
+		return fields, i
+		
+	
+	def insertField(self, range, properties, text):
+		"""Insert a field in place of *range* (a tuple of cursor positions), setting the *properties* (a dictionnary) and text (a Bibendum formatted text).
+		
+		Note: if replacing a list of ranges, you should always start by the one with the greatest cursor index.
+		"""
+		
+		c = self.doc.Text.getStart()
+		c.goRight(range[0], False)
+		c.goRight(range[1]-range[0], True)
+		
+		self._insertFieldAtCursor(c, properties, text)
+	
+	def insertFieldHere(self, properties, text):
+		"""Inserts a field in place of the current selection."""
+		
+		tr = self.doc.getCurrentController().getSelection().getByIndex(0)
+		c  = self.doc.Text.createTextCursorByRange(tr)
+		
+		self._insertFieldAtCursor(c, properties, text)
+	
+	def _insertFieldAtCursor(self, c, properties, text, index=None):
+		
+		if index is None:
+			_, index = self.getAllFields()
+		
+		for i, t in enumerate(text):
+			
+			if t[0]=='\n':
+				self.doc.Text.insertControlCharacter(c, PARAGRAPH_BREAK, True)
+				c.collapseToEnd()
+				continue
+			
+			if i==0:
+				# This is a 'cite' field
+				p = dict(properties)
+				p['fieldtype'] = 'cite'
+				field_name = self.encodeField(index, p)
+				fieldmain_name = field_name
+			else:
+				# This is a 'xref' field
+				p = dict()
+				p['fieldtype'] = 'xref'
+				p['fieldxref'] = fieldmain_name
+				field_name = self.encodeField(index, p)
+				
+			
+			xMaster = self.doc.createInstance("com.sun.star.text.fieldmaster.User")
+			xMaster.Name = field_name
+			xMaster.Content = t[0]
+			
+			xUserField = self.doc.createInstance("com.sun.star.text.textfield.User")
+			xUserField.attachTextFieldMaster(xMaster)
+			
+			if i==0:
+				self.doc.Text.insertTextContent(c, xUserField, True)
+			else:
+				self.doc.Text.insertTextContent(c, xUserField, False)
+			
+			c.goLeft(1, True)
+			self._setStyle(c, t[1])
+			c.collapseToEnd()
+			
+			index += 1
+		
+	def _setStyle(self, cursor, style_dict):
+		"""Applies the style defined in `style_dict` (Bibendum format) to the `object`.
+		The `object` is for example an OOo cursor."""
+		
+		cursor.setAllPropertiesToDefault()
+		for k, v in style_dict.iteritems():
+			try:
+				if k=='bold' and v:
+					cursor.setPropertyValue('CharWeight', 150.)
+				elif k=='italics' and v:
+					cursor.setPropertyValue('CharPosture', 2)
+				elif k=='underline' and v:
+					cursor.setPropertyValue('CharUnderline', 1)
+				elif k=='case':
+					cursor.setPropertyValue('CharCaseMap', {'normal': 0, 'upper': 1, 'lower': 2, 'title': 3, 'smallcaps': 4}[v])
+				elif k=='color':
+					cursor.setPropertyValue('CharColor', int('0x00'+v, 16))
+				elif k=='margin':
+					cursor.setPropertyValue('ParaTopMargin', int(1000*v[0]))
+					cursor.setPropertyValue('ParaRightMargin', int(1000*v[1]))
+					cursor.setPropertyValue('ParaBottomMargin', int(1000*v[2]))
+					cursor.setPropertyValue('ParaLeftMargin', int(1000*v[3]))
+				elif k=='indent':
+					cursor.setPropertyValue('ParaFirstLineIndent', int(1000*v))
+				elif k=='char_style':
+					cursor.setPropertyValue('CharStyleName', v)
+				elif k=='para_style':
+					cursor.setPropertyValue('ParaStyleName', v)
+			except:
+				pass
+	
+	def deleteField(self, field):
+		"""Deletes the field, i.e. the master field and all the occurrences in the text.
+		The `field` argument is a ``dict`` as returned by :meth:`getAllFields()`."""
+		
+		try:
+			for f in field['fieldmaster'].DependentTextFields:
+				f.dispose()
+			field['fieldmaster'].dispose()
+		except Exception as e:
+			return False, e
+		
+		return True, None
+	
+	def updateField(self, field, properties, text):
+		"""Update the `field` using the given `properties` and `text`. The `field` must be a 
+		`dict` as returned by :meth:`getAllFields()`.
+		
+		Returns `(True,None)` in case of success, or `(False,e)`, where `e` is the exception, in case of failure.
+		"""
+		
+		fields, i = self.getAllFields()
+		
+		if not fields.has_key(field['name']):
+			return False, LookupError('The field "%s" is not present')
+		
+		# Wipe the attached 'xref' fields if any
+		if field.has_key('children'):
+			for c in field['children']:
+				self.deleteField(fields[c])
+		
+		for f in field['fieldmaster'].DependentTextFields:
+			c = self.doc.Text.createTextCursorByRange(f.Anchor)
+			self._insertFieldAtCursor(c, properties, text, i)
+			i += 1
+		field['fieldmaster'].dispose()
+	
+	def createDocumentStyles(self, char_styles, para_styles):
+		"""Create the document wide styles if they don't already exist. Each argument is a ``dict`` which keys are the style names and
+		values ares ``dict`` with the format properties as defined in :class:`bBase.text`."""
+		
+		AllStyles = self.doc.getStyleFamilies()
+		CharStyles = AllStyles.getByName('CharacterStyles')
+		ParaStyles = AllStyles.getByName('ParagraphStyles')
+		
+		for k, v in char_styles.iteritems():
+			if k in CharStyles.getElementNames():
+				continue
+			xStyle = self.doc.createInstance("com.sun.star.style.CharacterStyle")
+			self._setStyle(xStyle, v)
+			CharStyles.insertByName(k, xStyle)
+		
+		for k, v in para_styles.iteritems():
+			if k in ParaStyles.getElementNames():
+				continue
+			xStyle = self.doc.createInstance("com.sun.star.style.ParagraphStyle")
+			self._setStyle(xStyle, v)
+			ParaStyles.insertByName(k, xStyle)
 
 #--------------------------------
 
@@ -245,10 +474,21 @@ def test_highlight():
 	time.sleep(3)
 	OOoBridge.highlight(False)
 
+def test_insertField():
+	OOoBridge = bridge()
+	ok, e = OOoBridge.connect({'type': 'pipe', 'name':'OOo_pipe'})
+	if not ok:
+		print e
+		return
+	
+	p = {'cite_ref': 'smith:2009', 'type': 'a'}
+	t = [('A portion of', {}),
+	     ('\n', {}),
+	     ('formatted', {'bold': True}),
+	     (' text.', {})]
+	
+	OOoBridge.insertFieldHere(p, t)
+
 #================================================================================
-if __name__=='__main__':
-	#~ test_bridge_connection()
-	#~ test_find_citations()
-	test_highlight()
 
 
