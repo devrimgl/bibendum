@@ -121,7 +121,7 @@ class citation(object):
 
 #============================================================================================
 
-class text:
+class text(object):
 	"""This class provides an abstraction for formatted text.
 	
 	The Bibendum formatted text is a ``list`` of ``tuple``\ s. Each ``tuple`` contains the text itself and a ``dict`` defining the style::
@@ -163,14 +163,21 @@ class text:
 	  | `para_style` | Style name for the paragraph                       |
 	  +--------------+----------------------------------------------------+
 	
+	The objects support iteration, ``[i]`` access and assignement, ``+`` addition, and ``*`` multiplication like Python ``list``\ s.
+	
 	Note: the format is somewhat not practical but is handy for text processor that does not allow formatting variations inside fields.
+	
+	.. attribute:: t
+	   
+	   Contains the ``list`` of tuples.
 	
 	"""
 	
 	def __init__(self, txt='', style=None):
 		
-		LIST = type(list())
-		TUPLE = type(tuple())
+		LIST   = type(list())
+		TUPLE  = type(tuple())
+		STRING = type(str())
 		
 		if type(txt)==LIST and type(style)==LIST:
 			self.t = zip(txt, style)
@@ -184,20 +191,36 @@ class text:
 						self.t.append( (x, dict()) )
 			else:
 				raise TypeError("If a list of tuples is supplied, no second argument should be provided (%s given)." % str(style))
-		else:
+		elif type(txt)==STRING:
 			if style is None:
 				self.t = [(txt, dict())]
 			elif type(style)==type(dict()):
 				self.t = [(txt, style)]
 			else:
-				raise TypeError("When 'txt' is not a list, 'style' should be None or a dict (%s given)." % str(style))
+				raise TypeError("When 'txt' is simple text, 'style' should be None or a dict (%s given)." % str(style))
+		elif type(txt)==type(self):
+			self.t = list( txt.t )
 	
 	def __str__(self):
 		return "".join([x[0] for x in self.t])
 	
 	def __iter__(self):
-		"""To implement iteration."""
 		return self.t.__iter__()
+	
+	def __len__(self):
+		return len(self.t)
+	
+	def __getitem__(self, i):
+		return self.t[i]
+	
+	def __setitem__(self, i, v):
+		self.t[i] = v
+	
+	def __add__(self, t):
+		return text( list(self.t) + ( text(t).t ) )
+	
+	def __mul__(self, n):
+		return text( list(self.t) * int(n))
 	
 	def append(self, txt, style=None, sep=''):
 		"""Adds a portion of text with its format at the end of the string.
@@ -284,11 +307,28 @@ def test_text():
 	for x in txt:
 		print x
 	#~ print text('This is text', [{'bold': True}, {}])
+	
+	t1 = text('toto', None)
+	t2 = text('titi', {'bold': True})
+	
+	print t1.t
+	
+	t3 = text(t1)
+	print "t3", t3.t
+	
+	t3[0] = (t3[0][0], {'bold': False})
+	
+	print "t3", t3.t
+	print "t1", t1.t
+	print "t2", t2.t
+	
+	
+	print (t2*3).t
+	print (t2*'3')
 
 
 #============================================================================================
-if __name__=='__main__':
-	test_text()
+
 
 
 
