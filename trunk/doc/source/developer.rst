@@ -49,6 +49,23 @@ This part of the documentation explains the architecture of the Bibendum Referen
 .. autoclass:: bBase.text
    :members:
 
+:class:`bBase.author` -- Author's name
+--------------------------------------
+
+.. autoclass:: bBase.author
+   :members:
+
+:class:`bBase.authorlist` -- List of author's names
+---------------------------------------------------
+
+.. autoclass:: bBase.authorlist
+   :members:
+
+:class:`bBase.entry` -- A bibliography entry
+--------------------------------------------
+
+.. autoclass:: bBase.entry
+   :members:
 
 
 
@@ -64,7 +81,16 @@ This part of the documentation explains the architecture of the Bibendum Referen
 :mod:`bDatabase` -- Database access
 ===================================
 
-.. automodule:: bDatabase
+:mod:`bDatabase._generic` -- Abstract class an query object
+-----------------------------------------------------------
+
+.. automodule:: bDatabase._generic
+   :members:
+
+:mod:`bDatabase.mysql` -- Implementation for MySQL
+--------------------------------------------------
+
+.. automodule:: bDatabase.mysql
    :members:
 
 
