@@ -78,6 +78,10 @@ class citation(object):
 	   contains the type of search ('string'), and `'search_string'` contains the
 	   string provided to the search engine. See :mod:`bDatabase`.
 	
+	.. attribute:: entries
+	   
+	   A list of :class:`entry` objects.
+	
 	"""
 	
 	def __init__(self, properties=None):
@@ -86,6 +90,7 @@ class citation(object):
 		self.text     = None
 		self.type     = None
 		self.search   = None
+		self.entries  = list()
 		
 		self.set(properties)
 	
@@ -277,57 +282,222 @@ class text(object):
 		Operates in place."""
 		self.t[-1] = (self.t[-1][0].rstrip(chars), self.t[-1][1])
 
-#−−−−−−−−−−−−−−−
-def test_text():
-	print text('This is text').t
-	print text('This is text', {'bold': True}).t
-	print text(['This is text ', 'in bold'], [{}, {'bold': True}]).t
-	print text([('The big ', {}), ('bold', {'bold': True}), (' text.', {})]).t
-	txt = text('This is text')
-	print txt.t
-	txt.append('in bold', {'bold': True}, ' ')
-	print txt.t
-	
-	txt.extend( text('More text.', {'italics': True}), '. ')
-	print txt.t
-	print txt
-	
-	txt = text('Not bold.', {})
-	txt.append('Bold.', {'bold': True}, ' ')
-	txt.append('Bold.', {'bold': True}, ' ')
-	txt.append('Not bold.', {}, ' ')
-	print txt.t
-	txt.reduce()
-	print txt.t
-	
-	txt = text(['   This is text ', 'in bold   '], [{}, {'bold': True}])
-	txt.strip()
-	print txt
-	
-	for x in txt:
-		print x
-	#~ print text('This is text', [{'bold': True}, {}])
-	
-	t1 = text('toto', None)
-	t2 = text('titi', {'bold': True})
-	
-	print t1.t
-	
-	t3 = text(t1)
-	print "t3", t3.t
-	
-	t3[0] = (t3[0][0], {'bold': False})
-	
-	print "t3", t3.t
-	print "t1", t1.t
-	print "t2", t2.t
-	
-	
-	print (t2*3).t
-	print (t2*'3')
+#============================================================================================
 
+class author(object):
+	"""Represents one author's name and provide convenient method for author name manipulation.
+	
+	Implements most of the methods of a ``dict``.
+	
+	.. attribute:: firstname
+	
+	.. attribute:: initals
+	
+	   List of space separated initials. Must not include the firstname is provided.
+	
+	.. attribute:: surname
+	
+	.. attribute:: prefix
+	
+	"""
+	
+	def __init__(self, x=None):
+		
+		self.firstname = ''
+		self.initials  = ''
+		self.surname   = ''
+		self.prefix    = ''
+		
+		if x is not None:
+			if type(x)==type(str()):
+				self.from_string(x)
+			elif type(x)==type(list()):
+				self.from_list(x)
+			elif type(x)==type(dict()):
+				self.from_dict(x)
+			elif type(x)==type(self):
+				self.from_dict(x.__dict__)
+			else:
+				raise TypeError('%s is not a valid type for author constructor.' % str(type(x)))
+	
+	def from_string(self, x):
+		x = [y.strip() for y in x.split('|')]
+		self.from_list(x)
+	
+	def from_list(self, x):
+		self.firstname = x[0]
+		self.initials  = x[1]
+		self.surname   = x[2]
+		self.prefix    = x[3]
+		
+		self._check_firstname()
+	
+	def from_dict(self, x):
+		keys = self.__dict__.keys()
+		
+		if x is not None:
+			for k in keys:
+				if x.has_key(k):
+					object.__setattr__(self, k, x[k])
+		
+		self._check_firstname()
+	
+	def __getitem__(self, key):
+		return self.__dict__[key]
+	
+	def __setitem__(self, key, value):
+		if key not in self.__dict__.keys():
+			raise IndexError('No new key can be created in citation objects.')
+		self.__dict__[key] = value
+		
+		self._check_firstname()
+	
+	def _check_firstname(self):
+		if len(self.firstname.strip())==0:
+			if len(self.initials.strip())!=0:
+				self.initials = self.initials.strip().split()
+				self.firstname = self.initials.pop(0)
+				self.initials = " ".join(self.initials)
+	
+	def __str__(self):
+		s = self.prefix.strip()+' '+self.surname.strip()
+		if len(self.firstname)!=0:
+			s += ' '+self.firstname.strip()[0]
+		if len(self.initials)!=0:
+			s += ' '+self.initials.strip()
+		return s
+	
+	def to_string(self):
+		"""Joins the fields to produce a text representation as stored in the database."""
+		return ' | '.join([self.firstname, self.initials, self.surname, self.prefix])
+
+#-----------
+def test_author():
+	a = author('firstname | initials | surname with spaces | prefix')
+	print a.__dict__
+	print a
 
 #============================================================================================
+
+class authorlist(object):
+	"""Represents one a list of :class:`author`\ s and provide convenient methods.
+	Implements most of the behaviour of a ``list``.
+	
+	.. automethod:: bBase.authorlist.__str__
+	   
+	   Produces a textual representation that could be used for short reference or search.
+	
+	"""
+	
+	def __init__(self, x=None):
+		
+		self._list = list()
+		
+		if x is not None:
+			if type(x)==type(str()):
+				self.from_string(x)
+			elif type(x)==type(list()):
+				self.from_list(x)
+			elif type(x)==type(self):
+				self.from_list(x._list)
+			else:
+				raise TypeError('%s is not a valid type for authorlist constructor.' % str(type(x)))
+	
+	def from_string(self, x):
+		self.from_list(x.split('#'))
+	
+	def from_list(self, x):
+		self._list = [author(y) for y in x]
+	
+	def __iter__(self):
+		self._list.__iter__()
+	
+	def __getitem__(self, i):
+		return self._list[i]
+	
+	def __setitem__(self, i, v):
+		self._list[i] = author(v)
+	
+	def append(self, v):
+		self._list.append(author(v))
+	
+	def extend(self, v):
+		self._list.extend( authorlist(v)._list )
+	
+	def __str__(self):
+		return ', '.join([str(x) for x in self.__list])
+	
+	def to_string(self):
+		"""Produces a list of authors as stored in the database (using '#' delimiters)."""
+		return ' # '.join([x.to_string() for x in self.__list])
+
+#============================================================================================
+
+import unicodedata
+
+class entry(object):
+	"""Represents an entry in the Bibendum database.
+	
+	.. attribute:: type
+	   
+	   The entry type is a string. The possible values are the `same as in BibTeX <http://en.wikipedia.org/wiki/BibTeX#Entry_Types>`_. 
+	
+	"""
+	
+	def __init__(self, x=None):
+		
+		self.type   = None
+		self.title  = None
+		self.author = None
+		self.year   = None
+		self.fields = None
+		self.cite_ref = None
+		
+		self.set(x)
+	
+	def set(self, x):
+		"""Sets the properties using a ``dict`` or an :class:`entry` object."""
+		
+		keys = self.__dict__.keys()
+		
+		if x is not None:
+			for k in keys:
+				if x.has_key(k):
+					object.__setattr__(self, k, x[k])
+		
+		self.author = authorlist(self.author)
+	
+	def makeRef(self, ref=None):
+		"""Creates a ``cite_ref`` using the first author's name and the year. Adds a suffix if `ref` is not ``None``.
+		In that case `ref` must be a formatted cite_ref."""
+		
+		# Adapted from swBib_base.php
+		
+		citeRef = self.author[0]['prefix'].replace(" ", "") + self.author[0]['surname'].replace(" ", "")
+		
+		citeRef = unicodedata('NKFD', unicode(citeRef, 'utf-8')).encode('ascii', 'ignore').lower()
+		
+		if n is None:
+			return citeRef + ":" + str(self.year)
+		else:
+			suffix = "abcdefghijklmnopqrstuvwxyz"
+			n = suffix.find(ref[-1])
+			if n == -1:
+				n = 0
+			else:
+				n += 1
+			return citeRef + ":" + str(self.year) + suffix[n]
+	
+	def __getitem__(self, key):
+		return self.__dict__[key]
+	
+	def __setitem__(self, key, value):
+		if key not in self.__dict__.keys():
+			raise IndexError('No new key can be created in citation objects.')
+		self.__dict__[key] = value
+		
+		self.author = authorlist(self.author)
+	
 
 
 
