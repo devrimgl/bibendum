@@ -28,10 +28,15 @@
 
 import bTextProcessor
 
-"""This module must defines a class :class:`finder` that is used to implement
-method of search of citation in the text. Typically, citations can be searched for
-in :mod:`natbib`\ -like format or in :mod:`plaintext`. Those class can also implement
-the reverse mechanism."""
+"""
+The implementations of this module define a class :class:`finder` that implements
+methods to search citations in the text. Typically, citations can be searched for
+in :mod:`natbib`\ -like format or in :mod:`plaintext`. Additionally, methods can be implemented
+to find a marker defining the name of the Bibendum style and the position of the reference list.
+
+Those class can also implement the reverse mechanism, i.e. transform fields into
+textual representations.
+"""
 
 class finder:
 	"""
@@ -53,6 +58,8 @@ class finder:
 		raise NotImplementedError()
 	
 	def findReflist(self):
+		"""Returns a list of tuples ``(reflist_options, range)`` where ``reflist_options`` is ``dict`` with
+		options for the reference list."""
 		raise NotImplementedError()
 	
 	def findStyleDefinition(self):
