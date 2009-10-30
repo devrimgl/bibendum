@@ -87,23 +87,35 @@ class citation(object):
 		self.type     = None
 		self.search   = None
 		
-		if properties is not None:
-			for k in ['cite_ref', 'text', 'type', 'search']:
-				if properties.has_key(k):
-					object.__setattr__(self, k, properties[k])
-		
+		self.set(properties)
 	
 	def __getitem__(self, key):
 		return self.__dict__[key]
 	
 	def __setitem__(self, key, value):
-		self.__dict__[k] = value
+		if key not in self.__dict__.keys():
+			raise IndexError('No new key can be created in citation objects.')
+		self.__dict__[key] = value
+	
+	def __str__(self):
+		return self.__dict__.__str__()
 	
 	def iteritems(self):
 		return self.__dict__.iteritems()
 	
 	def dict(self):
+		"""Returns a copy of the properties as a ``dict``."""
 		return dict(self.__dict__)
+	
+	def set(self, properties):
+		"""Sets the properties using a ``dict``."""
+		
+		keys = self.__dict__.keys()
+		
+		if properties is not None:
+			for k in keys:
+				if properties.has_key(k):
+					object.__setattr__(self, k, properties[k])
 
 
 
