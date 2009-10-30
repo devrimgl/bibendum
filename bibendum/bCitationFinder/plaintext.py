@@ -30,14 +30,15 @@ import bBase
 import bCitationFinder._generic
 import re
 
-"""The `plaintext` implementation of the :mod:`bCitationFinder` module is meant to detect 
-citations in plain text (surprising isn't it?). Only citations in the author-year format can be
-found. The finder recognises "et al.", "and" and "&", and tries to determine the type of citation.
-
-I also parses the citation to build a search string for the :mod:`bDatabase` search function.
-"""
-
 class finder(bCitationFinder._generic.finder):
+	
+	"""
+	The `plaintext` implementation of the :mod:`bCitationFinder` module is meant to detect 
+	citations in plain text (surprising isn't it?). Only citations in the author-year format can be
+	found. The finder recognises "et al.", "and" and "&", and tries to determine the type of citation.
+
+	Also parses the citation to build a search string for the :mod:`bDatabase` search function.
+	"""
 	
 	implementedMethods = ['findCitations']
 	
@@ -76,7 +77,7 @@ class finder(bCitationFinder._generic.finder):
 		# For each citation candidate, determine the type, authors and year
 		citations = list()
 		for c in ls:
-			txt, span = c
+			txt, span, grps = c
 			
 			cite = bBase.citation()
 			

@@ -90,7 +90,7 @@ class bridge:
 	def findRegexp(self, regexp):
 		"""**Abstract method**. Implementation must return a list of matches using the provided regular expression. The list format is::
 		
-		   [(matched_text, (start_index, end_index)), ...]
+		   [(matched_text, (start_index, end_index), groups), ...]
 		
 		The indices must be compatible with cursor operations.
 		

@@ -29,7 +29,7 @@
 LOWERCASE = 'çéáíóúýèàìòùỳêâîôûŷëäïöüÿẽãĩõũỹñøɨħåů'
 UPPERCASE = 'ÇÉÁÍÓÚÝÈÀÌÒÙỲÊÂÎÔÛŶËÄÏÖÜŸẼÃĨÕŨỸÑØƗĦÅŮ'
 
-class citation:
+class citation(object):
 	"""This is just a tiny wrapper that defines a citation in text.
 	
 	`properties` is expected to be a ``dict``. It can contain irrelevant properties. Only the applicable properties will be used.
@@ -70,6 +70,8 @@ class citation:
 	     
 	     ``'t*'`` produces van de Geek, Smith and Baker (2001).
 	   
+	   Those modifiers are ignored for the type 'y'.
+	   
 	.. attribute:: search
 	   
 	   A ``dict`` telling how to search the database for this reference. `'search_type'`
@@ -78,17 +80,31 @@ class citation:
 	
 	"""
 	
-	cite_ref = None
-	text     = None
-	type     = None
-	search   = None
-	
 	def __init__(self, properties=None):
+		
+		self.cite_ref = None
+		self.text     = None
+		self.type     = None
+		self.search   = None
+		
 		if properties is not None:
-			for k in ['cite_ref', 'text', 'type']:
+			for k in ['cite_ref', 'text', 'type', 'search']:
 				if properties.has_key(k):
-					self.__attr__[k] = properties[k]
+					object.__setattr__(self, k, properties[k])
+		
 	
+	def __getitem__(self, key):
+		return self.__dict__[key]
+	
+	def __setitem__(self, key, value):
+		self.__dict__[k] = value
+	
+	def iteritems(self):
+		return self.__dict__.iteritems()
+	
+	def dict(self):
+		return dict(self.__dict__)
+
 
 
 #============================================================================================

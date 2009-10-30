@@ -38,7 +38,8 @@ from com.sun.star.text.ControlCharacter import PARAGRAPH_BREAK
 """This module is used to communicate with OpenOffice.org Writer using `PyUNO <http://udk.openoffice.org/python/python-bridge.html>`_."""
 
 class bridge(bTextProcessor._generic.bridge):
-	"""Communication with OpenOffice.org Writer.
+	"""This implementation of :class:`bTextProcessor._generic` is used to communicate with
+	OpenOffice.org Writer using `PyUNO <http://udk.openoffice.org/python/python-bridge.html>`_.
 	
 	.. automethod:: _getRealText
 	
@@ -140,7 +141,7 @@ class bridge(bTextProcessor._generic.bridge):
 		
 		t_citations = dict()
 		for f in regexp.finditer(txt):
-			t_citations[f.span()[0]] = (f.group(), f.span())
+			t_citations[f.span()[0]] = (f.group(), f.span(), f.groups())
 		
 		# Sort the citation list to start with the last one
 		keys = t_citations.keys()
