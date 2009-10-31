@@ -26,6 +26,7 @@
 #    
 #-------------------------------------------------------------------------
 
+import bBase
 import bDatabase._generic
 import MySQLdb 
 
@@ -68,7 +69,7 @@ class database(bDatabase._generic.database):
 		success and ``(False,error)`` where ``error`` is an :class:`Exception` in case of failure."""
 		
 		try:
-			self.dbc = MySQLdb.connect(host=self.host, usr=self.user, passwd=self.password, db=self.db_name)
+			self.dbc = MySQLdb.connect(host=self.host, user=self.user, passwd=self.password, db=self.db_name)
 			self.db  = self.dbc.cursor()
 		except Exception as e:
 			return False, e
@@ -83,12 +84,28 @@ class database(bDatabase._generic.database):
 		self.dbc.close()
 		self.dbc = None
 	
-	def _query(self, sql, args=None):
+	def _protect(self, s):
+		return self.db.connection.escape_string(str(s))
+	
+	def _query(self, sql, *args):
 		"""Executes a SQL query. In case of SELECT query, a tuple of lists is returned.
+		The query can contain ``%s``, that will be replaced by the following arguments.
+		Unlike the MySQLdb function, quotes must be included::
+		
+		   self._query("SELECT * FROM `%s` WHERE id=%s OR name='%s'", 'tableName', 1, 'toto "the zero"')
+		
+		The arguments are converted to strings and protected using :meth:`_query`.
 		"""
 		
+		targs = list()
+		for a in args:
+			targs.append(self._protect(a))
+		sql = sql % tuple(targs)
+		
+		self.last_query = sql
+		
 		try:
-			self.db.execute(sql, args)
+			self.db.execute(sql)
 		except Exception as e:
 			self.last_query_exception = e
 			return None
@@ -128,56 +145,100 @@ class database(bDatabase._generic.database):
 		while id_entry is None:
 			citeRef = entry.make_ref(citeRef)
 			
-			ids, = self._query("SELECT id_entry FROM `%s` WHERE `cite_ref`=\"%s\"", [self.entry_table, citeRef])
+			ids, = self._query("SELECT id_entry FROM `%s` WHERE `cite_ref`=%s", (citeRef,))
 			
 			if len(ids) == 0 :
-				sql = """INSERT INTO `%s` SET `cite_ref`='%s', 
-				         `title`='%s', 
-				         `author`='%s', 
-				         `year`=%s,
-				         `type`='%s', 
+				sql = """INSERT INTO `%s` SET `cite_ref`="%s", 
+				         `title`="%s", 
+				         `author`="%s", 
+				         `year`="%s",
+				         `type`="%s", 
 				         `creation_date`=NOW()"""
-				args = [self.entry_table, citeRef, entry.title, entry.author.to_string(), entry.year, entry.type]
-				self._query(sql, args)
+				args = (self.entry_table, citeRef, entry.title, entry.author.to_string(), entry.year, entry.type)
+				self._query(sql, *args)
 				id_entry = self.db.lastrowid
 				break
 			
 		
 		for name, value in entry.fields.iteritems():
-			sql = """INSERT INTO `%s` SET ".
-			       "id_entry=".$id_entry.", ".
-			       "field_name='".$this->protect($name)."', ".
-			       "field_value='".$this->protect($value)."'"""
-			args = [self.field_table,]
-			mysql_query($sql, $this->dbh);
-		}
+			sql = """INSERT INTO `%s` SET 
+			         `id_entry`="%s", 
+			         `field_name`="%s", 
+			         `field_value`="%s" """
+			args = (self.field_table, id_entry, name, value)
+			self._query(sql, *args)
 		
-		return array($id_entry, array());
-	
-	def insertEntries(self, entries, force=False):
-		"""Inserts a ``list`` of :class:`bBase.entry` objects If the `force` switch is ``True``,
-		the entries are inserted even if they are thought to be duplicates."""
-		
-		ids = list()
-		duplicates = list()
-		for e in entries:
-			id, d = self.insertEntry(e, force)
-			if e is None or len(e)==0:
-				ids.append(id)
-			else:
-				duplicates.extend(d)
-		
-		return ids, duplicates
+		return id_entry, tuple()
 	
 	def deleteEntry(self, x):
-		"""**Abstract** Deletes an entry from the database. Actually all entries must be kept
-		in the backup database. `x` can be a database id, a cite_ref or a :class:`bBase.entry` object."""
-		raise NotImplementedError()
+		"""Deletes an entry from the database. Actually all entries must be kept
+		in the backup database. `x` can be a database id, a cite_ref or a :class:`bBase.entry` object.
+		Returns ``True`` in case of success, and ``False`` otherwise."""
+		
+		sql = "SELECT `id_entry` FROM `%s` WHERE `id_entry`='%s' OR `cite_ref`='%s' LIMIT 1";
+		args = (self.entry_table, x, x)
+		id, = self._query(sql, *args)
+		if len(id)==0:
+			return False
+		id = id[0]
+		
+		self.backupEntry(id, 'deleted')
+		
+		sql = "DELETE FROM `%s` WHERE id_entry='%s'"
+		self._query(sql, self.entry_table, id)
+		
+		sql = "DELETE FROM `%s` WHERE id_entry='%s'"
+		self._query(sql, self.field_table, id)
+		
+		return True
 	
 	def updateEntry(self, e):
-		"""**Abstract** Updates the :class:`bBase.entry` `e` in the database. 
-		Should backup the old entry, and create a new one if doesn't already exist."""
-		raise NotImplementedError()
+		"""Updates the :class:`bBase.entry` `e` in the database. 
+		Should backup the old entry, and create a new one if doesn't already exist.
+		Returns ``True`` if the entry was updated and ``False`` if a new entry was created."""
+		
+		ids, = self._query("SELECT `id_entry` FROM `%s` WHERE `cite_ref`='%s'", self.entry_table, e.cite_ref)
+		if len(ids) != 0 :
+			
+			id = ids[0]
+			
+			self.backupEntry(id, 'edit')
+			
+			# Update the original entry and fields
+			sql = """UPDATE `%s` SET 
+			         `title`='%s', 
+			         `author`='%s', 
+			         `year`="%s", 
+			         `type`='%s' 
+			         WHERE `id_entry`=%s """
+			args = (self.entry_table, e.title, e.author.to_string(), e.year, e.style, id)
+			self._query(sql, *args)
+			
+			for fn, fv in e.fields.iteritems():
+				sql = "SELECT `id_field` FROM `%s` WHERE id_entry=%s AND field_name='%s'"
+				res, = self._query(sql, self.field_table, id, fn)
+				if len(res) > 0 :
+					idf = res[0]
+					
+					sql = """UPDATE `%s` SET `field_value`='%s' 
+					         WHERE `id_field`=%s """
+					args = (self.field_table, fv, idf)
+					self._query(sql, *args)
+				else:
+					sql = """INSERT INTO `%s` SET 
+					         `id_entry`="%s", 
+					         `field_name`='%s', 
+					         `field_value`='%s' """
+					args = (self.field_table, id, fn, fv)
+					self._query(sql, args*)
+				
+			return True
+			
+		else:
+			self.insertEntry(e, True)
+			return False
+		
+		
 	
 	def getEntry(self, x):
 		"""**Abstract** Retrieve an entry from the database. `x` can be a database id, a cite_ref
