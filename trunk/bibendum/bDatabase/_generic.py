@@ -29,11 +29,16 @@
 class database:
 	"""Abstract class for access to databases. The constructor must take ``dict`` containing the options.
 	
+	.. attribute:: last_query
+	
+	   The last executed query.
+	
 	.. attribute:: last_query_exception
 	   
 	   The exception caused by the last executed query (if failed).
 	"""
 	
+	last_query = None
 	last_query_exception = None
 	
 	def open(self):
