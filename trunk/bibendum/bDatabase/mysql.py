@@ -94,7 +94,7 @@ class database(bDatabase._generic.database):
 		
 		   self._query("SELECT * FROM `%s` WHERE id=%s OR name='%s'", 'tableName', 1, 'toto "the zero"')
 		
-		The arguments are converted to strings and protected using :meth:`_query`.
+		The arguments are converted to strings and protected using :meth:`_protect`.
 		"""
 		
 		targs = list()
@@ -131,10 +131,47 @@ class database(bDatabase._generic.database):
 		
 		return tuple(t)
 	
+	def _queryd(self, sql, *args):
+		"""Same as :meth:`_query` but returns a list of ``dict``.
+		"""
+		
+		targs = list()
+		for a in args:
+			targs.append(self._protect(a))
+		sql = sql % tuple(targs)
+		
+		self.last_query = sql
+		
+		try:
+			self.db.execute(sql)
+		except Exception as e:
+			self.last_query_exception = e
+			return None
+		self.last_query_exception = None
+		
+		result  = self.db.fetchall()
+		description = self.db.description
+		
+		if description==None:
+			return None
+		
+		field_names = [x[0] for x in description]
+		
+		n = len(description)
+		
+		if len(result)==0:
+			return tuple([ list() for i in range(n) ])
+		
+		t = list()
+		for row in result :
+			t.append(dict(zip(description, row)))
+		
+		return t
+	
 	def insertEntry(self, entry, force=False):
 		"""Inserts the :class:`bBase.entry` `e` in the database."""
 		
-		if force:
+		if not force:
 			e = self.findDuplicates(entry)
 			if len(e)>0:
 				return False, (entry, e)
@@ -167,6 +204,8 @@ class database(bDatabase._generic.database):
 			         `field_value`="%s" """
 			args = (self.field_table, id_entry, name, value)
 			self._query(sql, *args)
+		
+		self.makeSearch(id_entry)
 		
 		return id_entry, tuple()
 	
@@ -230,7 +269,7 @@ class database(bDatabase._generic.database):
 					         `field_name`='%s', 
 					         `field_value`='%s' """
 					args = (self.field_table, id, fn, fv)
-					self._query(sql, args*)
+					self._query(sql, *args)
 				
 			return True
 			
@@ -238,26 +277,92 @@ class database(bDatabase._generic.database):
 			self.insertEntry(e, True)
 			return False
 		
-		
 	
 	def getEntry(self, x):
-		"""**Abstract** Retrieve an entry from the database. `x` can be a database id, a cite_ref
-		or a :class:`bBase.entry` object. Returns a filled :class:`bBase.entry` object."""
-		raise NotImplementedError()
+		"""Retrieve an entry from the database. `x` can be a database id, a cite_ref
+		or a :class:`bBase.entry` object. Returns a filled :class:`bBase.entry` object.
+		Returns ``None`` if the entry cannot be found."""
+		
+		sql = "SELECT * FROM `%s` WHERE id_entry='%s' OR cite_ref='%s'"
+		args = (self.entry_table, x, x)
+		res = self._queryd(sql, *args)
+		if res is None or len(res)==0:
+			return None
+		res = res[0]
+		
+		sql = "SELECT * FROM `%s` WHERE id_entry=%s"
+		args = (self.field_table, res['id_entry'])
+		k, v = self._query(sql, *args)
+		res['fields'] = dict(zip(k, v))
+		
+		e = bBase.entry(res)
+		
+		return e
 	
 	def findDuplicates(self, e, strict=True):
-		"""**Abstract** Returns a list of :class:`bBase.entry` objects that
+		"""Returns a list of :class:`bBase.entry` objects that
 		are potential duplicates of `e`. If `strict` is ``True``, a duplicate has the same authors, year and title.
 		If ``strict=False``, first author must be the same, year must be the same, and at least 50% of the word of
 		the title must be the same."""
-		raise NotImplementedError()
+		
+		if strict:
+			author_surnames = "#".join([("%|%| "+x['surname']+" |%") for x in e.author])
+			sql = "SELECT id_entry FROM `%s` WHERE author LIKE '%s' AND year=%s AND title='%s'"
+			args = (self.entry_table, author_surnames, e.year, e.title)
+			id_entry, = self._query(sql, *args)
+		else:
+			sql = "SELECT id_entry, title FROM `%s` WHERE LOWER(author) REGEXP '^[^|]+\\|[^|]+\\| *%s *\\|.*' AND year=%s"
+			args = (self.entry_table, e.author[0]['surname'].lower(), e.year)
+			ids, titles = self._query(sql, *args)
+			id_entry = list()
+			for id, title in zip(ids, titles):
+				n, nA, nB = self.wordCorrelation(title, e.title)
+				if (n/nA*100.)>=50.:
+					id_entry.append(id)
+		
+		duplicates = list()
+		for id in id_entry:
+			duplicates.append( self.getEntry(id) )
+		
+		return duplicates
+	
+	def makeSearch(self, x):
+		"""Creates the easy search string and insert it or update it in the database."""
+		
+		e = self.getEntry(x)
+		if e.fields.has_key('journal'):
+			journal = self.getJournal(e.fields['journal'])
+			
+		sql = "INSERT INTO `%s` SET id_entry=%s, author='%s', year=%s, journal='%s'"
+		args = (self.search_table, e.id_entry, e.author, e.year, journal['id_journal'])
 	
 	def getJournal(self, journal, strict=True):
-		"""**Abstract** Returns a ``dict`` with the alternative versions of a journal's title: long, pubmed,
+		"""Returns a ``dict`` with the alternative versions of a journal's title: long, pubmed,
 		iso or short. If a version is empty in the database, the key should not be present in the returned ``dict``.
 		The `journal` argument must be one of the versions of the journal's title.
 		The `strict` flag may allow to get only best matches for journal titles."""
-		raise NotImplementedError()
+		
+		if strict:
+			sql = "SELECT * FROM `%s` WHERE `iso`='%s' OR `long`='%s' OR `pubmed`='%s' OR `short`='%s'"
+			args = (self.journal_table, journal, journal, journal, journal)
+			res = self._queryd(sql, *args)
+			if res is None or len(res)==0:
+				return None
+			else:
+				j = res[0]
+			
+		else:
+			pass
+		
+		journal = dict()
+		for k, v in j.iteritems():
+			if v is None or len(v.strip())==0:
+				continue
+			else:
+				journal[k] = v
+		
+		return journal
+		
 	
 	def naturalSearch(self, q, limit=100):
 		"""**Abstract** Searches in the database using a :class:`query` object. Must build the corresponding

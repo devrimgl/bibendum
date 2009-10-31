@@ -436,7 +436,9 @@ class authorlist(object):
 import unicodedata
 
 class entry(object):
-	"""Represents an entry in the Bibendum database.
+	"""Represents an entry in the Bibendum database. Can be initialized with a ``dict`` or another :class:`entry` object.
+	
+	``str()`` called on an entry object returns its cite_ref.
 	
 	.. attribute:: type
 	   
@@ -452,8 +454,12 @@ class entry(object):
 		self.year   = None
 		self.fields = None
 		self.cite_ref = None
+		self.id_entry = None
 		
-		self.set(x)
+		if type(x)==type(dict()) or type(x)==type(self):
+			self.set(x)
+		else:
+			raise TypeError('Type %s is not supported for the creation of bBase.entry objects.' % type(x))
 	
 	def set(self, x):
 		"""Sets the properties using a ``dict`` or an :class:`entry` object."""
@@ -497,6 +503,9 @@ class entry(object):
 		self.__dict__[key] = value
 		
 		self.author = authorlist(self.author)
+	
+	def __str__(self):
+		return cite_ref
 	
 
 
