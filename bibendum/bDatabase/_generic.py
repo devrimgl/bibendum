@@ -26,6 +26,8 @@
 #    
 #-------------------------------------------------------------------------
 
+import re
+
 class database:
 	"""Abstract class for access to databases. The constructor must take ``dict`` containing the options.
 	
@@ -91,11 +93,42 @@ class database:
 		the title must be the same."""
 		raise NotImplementedError()
 	
+	def wordCorrelation(self, A, B):
+		"""Computes the word correlation between two strings, i.e. how many unique words in common the two strings have.
+		Returns the number of common words, the number of unique words in A and the number of unique words in B (``float``\ s).
+		
+		Can be used for the implementation of :meth:`findDuplicates`."""
+		
+		A = re.split('\W+', A)
+		uA = dict()
+		for x in A:
+			if len(x)!=0:
+				uA[x.lower()] = None
+		uA = uA.keys()
+		
+		B = re.split('\W+', B)
+		uB = dict()
+		for x in B:
+			if len(x)!=0:
+				uB[x.lower()] = None
+		uB = uB.keys()
+		
+		n = 0
+		for x in uA:
+			if x in uB:
+				n += 1
+		
+		return float(n), float(len(uA)), float(len(uB))
+	
 	def getJournal(self, journal, strict=True):
 		"""**Abstract** Returns a ``dict`` with the alternative versions of a journal's title: long, pubmed,
 		iso or short. If a version is empty in the database, the key should not be present in the returned ``dict``.
 		The `journal` argument must be one of the versions of the journal's title.
 		The `strict` flag may allow to get only best matches for journal titles."""
+		raise NotImplementedError()
+	
+	def makeSearch(self, x):
+		"""**Abstract** Creates the easy search string and insert it or update it in the database."""
 		raise NotImplementedError()
 	
 	def naturalSearch(self, q, limit=100):
@@ -106,14 +139,16 @@ class database:
 		raise NotImplementedError()
 	
 	def createTables(self):
-		"""**Abstract** Create the tables. Wipe them if already exist."""
+		"""**Abstract** Create the tables. Wipe them if already exist. Here are the tables that need to be created:
+		
+		
+		
+		"""
 		raise NotImplementedError()
 	
 	
 
 #============================================================================================
-
-import re
 
 reDate = re.compile('[0-9]{4}')
 reEtal = re.compile('[^a-zA-Z0-9_-](et +al[^a-zA-Z0-9_]*)$')
