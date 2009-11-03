@@ -177,7 +177,11 @@ class query:
 	.. attribute:: q
 	   
 	   The original query string.
+	
+	.. attribute:: RANK
 	   
+	   **Constant** Gives the weightings for the authors, year and journal for the searches.
+	
 	"""
 	
 	def __init__(self, x):
@@ -187,6 +191,8 @@ class query:
 		self.journal = None # In one of the known formats
 		self.year = None
 		self.q = None
+		
+		self.RANK = {'author': 10, 'year': 6, 'journal': 4}
 		
 		if type(x)==type(str()):
 			self.parseQuery(x)

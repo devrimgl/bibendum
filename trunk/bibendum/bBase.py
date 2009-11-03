@@ -418,6 +418,9 @@ class authorlist(object):
 	def __setitem__(self, i, v):
 		self._list[i] = author(v)
 	
+	def __len__(self):
+		return len(self._list)
+	
 	def append(self, v):
 		self._list.append(author(v))
 	
