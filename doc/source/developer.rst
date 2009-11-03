@@ -159,6 +159,25 @@ Access to the data is expected to be in UTF-8. Text searches are expected to be 
    | `short`         | ``text``                       |
    +-----------------+--------------------------------+
 
+:obj:`Search` -- Contains representation of the entries compatible with natural search
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+   +-----------------+--------------------------------+
+   | Field           | Type and details               |
+   +=================+================================+
+   | `id_search`     | ``int``, auto increment, index |
+   +-----------------+--------------------------------+
+   | `id_entry`      | ``int``, unique, index         |
+   +-----------------+--------------------------------+
+   | `author`        | ``text``                       |
+   +-----------------+--------------------------------+
+   | `n_author`      | ``int``                        |
+   +-----------------+--------------------------------+
+   | `year`          | ``int``                        |
+   +-----------------+--------------------------------+
+   | `journal`       | ``text``                       |
+   +-----------------+--------------------------------+
+
 
 
 :mod:`bDatabase._generic` -- Abstract class an query object

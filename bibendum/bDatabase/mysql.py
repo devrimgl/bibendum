@@ -332,9 +332,14 @@ class database(bDatabase._generic.database):
 		e = self.getEntry(x)
 		if e.fields.has_key('journal'):
 			journal = self.getJournal(e.fields['journal'])
+			journal_all = list()
+			for k in ['short', 'pubmed', 'long']:
+				if journal.has_key(k):
+					journal_all.append(journal[k])
+			journal_all = ", ".join(journal_all)
 			
-		sql = "INSERT INTO `%s` SET id_entry=%s, author='%s', year=%s, journal='%s'"
-		args = (self.search_table, e.id_entry, e.author, e.year, journal['id_journal'])
+		sql = "INSERT INTO `%s` SET id_entry=%s, author='%s', n_author=%s, year=%s, journal='%s' ON DUPLICATE KEY UPDATE"
+		args = (self.search_table, e.id_entry, e.author, len(e.author), e.year, journal_all)
 	
 	def getJournal(self, journal, strict=True):
 		"""Returns a ``dict`` with the alternative versions of a journal's title: long, pubmed,
@@ -365,11 +370,20 @@ class database(bDatabase._generic.database):
 		
 	
 	def naturalSearch(self, q, limit=100):
-		"""**Abstract** Searches in the database using a :class:`query` object. Must build the corresponding
+		"""Searches in the database using a :class:`query` object. Must build the corresponding
 		query for the specific implementation. This includes converting "*" into the specific query language wildcare.
 		The expected behaviour is to return a first list of entries that satisfy all the criterion and a complementary list
 		of partial matches sorted by decreasing relevance. The `limit` argument is used to limit the total number of matches."""
-		raise NotImplementedError()
+		
+		sql = list()
+		
+		for i, a in enumerate(q.author_names):
+			if i==0:
+				rank_multiplier = 2
+			else:
+				rank_multiplier = 1
+			sql.append("SELECT id_entry, %d*%d AS `rank` FROM `%s` WHERE author LIKE '%s'" %
+			           (self._protect(q.RANK['author']), rank_multiplier, self.search_table, self._protect(a.replace('*', '%'))))
 	
 	def createTables(self):
 		"""**Abstract** Create the tables. Wipe them if already exist."""
