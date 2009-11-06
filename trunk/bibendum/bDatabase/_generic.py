@@ -71,6 +71,35 @@ class database:
 		
 		return ids, duplicates
 	
+	def serializeEntry(self, e, method='python_repr'):
+		"""Serialize an :class:`bBase.entry` object. Supported methods are "python_repr" (default)
+		and "php_serialize". See also :meth:`unserializeEntry`."""
+		
+		if method=='python_repr':
+			serialized_entry = repr(e.__dict__)
+		elif method=='php_serialize':
+			import phpserialize
+			serialized_entry = phpserialize.serialize(e.__dict__)
+		else:
+			raise NotImplementedError()
+			
+		return serialized_entry, method
+	
+	def unserializeEntry(self, serialized_entry, method='python_repr'):
+		"""Unserialize a serialized entry. See :meth:`serializeEntry`."""
+		
+		if method=='python_repr':
+			return bBase.entry(eval(serialized_entry))
+		elif method=='php_serialize':
+			import phpserialize
+			return phpserialize.unserialize(serialized_entry, decode_strings=True)
+		else:
+			raise NotImplementedError()
+	
+	def backupEntry(self, id, reason):
+		"""**Abstract** Save an entry in the database by serializing using the :meth:`serializeEntry` method."""
+		raise NotImplementedError()
+	
 	def deleteEntry(self, x):
 		"""**Abstract** Deletes an entry from the database. Actually all entries must be kept
 		in the backup database. `x` can be a database id, a cite_ref or a :class:`bBase.entry` object."""
@@ -139,7 +168,8 @@ class database:
 		raise NotImplementedError()
 	
 	def createTables(self, wipe=False):
-		"""**Abstract** Create the tables. Wipe them if already exist and `wipe`=``True``.
+		"""**Abstract** Create the tables. Wipe them if already exist and `wipe`=``True``. Returns ``True, None, None`` in case
+		of success, or ``False``, the faulty query and exception otherwise.
 		"""
 		raise NotImplementedError()
 	
