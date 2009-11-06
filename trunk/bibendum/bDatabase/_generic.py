@@ -138,11 +138,8 @@ class database:
 		of partial matches sorted by decreasing relevance. The `limit` argument is used to limit the total number of matches."""
 		raise NotImplementedError()
 	
-	def createTables(self):
-		"""**Abstract** Create the tables. Wipe them if already exist. Here are the tables that need to be created:
-		
-		
-		
+	def createTables(self, wipe=False):
+		"""**Abstract** Create the tables. Wipe them if already exist and `wipe`=``True``.
 		"""
 		raise NotImplementedError()
 	
@@ -160,7 +157,7 @@ class query:
 	
 	.. attribute:: author_names
 	   
-	   Author names (``string``) with prefix and possibly initials with no dot (e.g. "Patterson RD").
+	   List of author names (``string``) with prefix and possibly initials with no dot (e.g. "Patterson RD").
 	
 	.. attribute:: n_authors
 	   
@@ -180,7 +177,9 @@ class query:
 	
 	.. attribute:: RANK
 	   
-	   **Constant** Gives the weightings for the authors, year and journal for the searches.
+	   **Constant** Gives the weightings for the authors, year and journal for the searches::
+	   
+	      query.RANK = {'firstauthor': 2, 'number_of_authors': 1, 'author': 1, 'year': 1, 'journal': 1}
 	
 	"""
 	
@@ -192,7 +191,7 @@ class query:
 		self.year = None
 		self.q = None
 		
-		self.RANK = {'author': 10, 'year': 6, 'journal': 4}
+		self.RANK = {'firstauthor': 2, 'number_of_authors': 1, 'author': 1, 'year': 1, 'journal': 1}
 		
 		if type(x)==type(str()):
 			self.parseQuery(x)

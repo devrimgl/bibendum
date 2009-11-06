@@ -124,8 +124,8 @@ Access to the data is expected to be in UTF-8. Text searches are expected to be 
    +-----------------+--------------------------------+
 
 
-:obj:`Backup` -- Where any entry is save when modified or deleted
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+:obj:`Backup` -- Where any entry is saved when modified or deleted
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
    +-----------------+--------------------------------+
    | Field           | Type and details               |
@@ -150,7 +150,7 @@ Access to the data is expected to be in UTF-8. Text searches are expected to be 
    +=================+================================+
    | `id_journal`    | ``int``, auto increment, index |
    +-----------------+--------------------------------+
-   | `iso`           | ``text``, unique, index        |
+   | `iso`           | ``text``, index                |
    +-----------------+--------------------------------+
    | `long`          | ``text``                       |
    +-----------------+--------------------------------+
@@ -167,7 +167,7 @@ Access to the data is expected to be in UTF-8. Text searches are expected to be 
    +=================+================================+
    | `id_search`     | ``int``, auto increment, index |
    +-----------------+--------------------------------+
-   | `id_entry`      | ``int``, unique, index         |
+   | `id_entry`      | ``int``, key                   |
    +-----------------+--------------------------------+
    | `author`        | ``text``                       |
    +-----------------+--------------------------------+
