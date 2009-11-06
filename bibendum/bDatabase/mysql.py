@@ -71,7 +71,7 @@ class database(bDatabase._generic.database):
 		try:
 			self.dbc = MySQLdb.connect(host=self.host, user=self.user, passwd=self.password, db=self.db_name)
 			self.db  = self.dbc.cursor()
-		except Exception as e:
+		except Exception, e:
 			return False, e
 		
 		return True, None
@@ -106,9 +106,9 @@ class database(bDatabase._generic.database):
 		
 		try:
 			self.db.execute(sql)
-		except Exception as e:
+		except Exception, e:
 			self.last_query_exception = e
-			return None
+			return False
 		self.last_query_exception = None
 		
 		result  = self.db.fetchall()
@@ -144,7 +144,7 @@ class database(bDatabase._generic.database):
 		
 		try:
 			self.db.execute(sql)
-		except Exception as e:
+		except Exception, e:
 			self.last_query_exception = e
 			return None
 		self.last_query_exception = None
@@ -340,6 +340,7 @@ class database(bDatabase._generic.database):
 			
 		sql = "INSERT INTO `%s` SET id_entry=%s, author='%s', n_author=%s, year=%s, journal='%s' ON DUPLICATE KEY UPDATE"
 		args = (self.search_table, e.id_entry, e.author, len(e.author), e.year, journal_all)
+		self._query(sql, *args)
 	
 	def getJournal(self, journal, strict=True):
 		"""Returns a ``dict`` with the alternative versions of a journal's title: long, pubmed,
@@ -370,24 +371,127 @@ class database(bDatabase._generic.database):
 		
 	
 	def naturalSearch(self, q, limit=100):
-		"""Searches in the database using a :class:`query` object. Must build the corresponding
-		query for the specific implementation. This includes converting "*" into the specific query language wildcare.
-		The expected behaviour is to return a first list of entries that satisfy all the criterion and a complementary list
-		of partial matches sorted by decreasing relevance. The `limit` argument is used to limit the total number of matches."""
+		"""Searches in the database using a :class:`query` object. Builds the corresponding
+		query for the specific implementation and returns a list of entries sorted by relevance.
+		
+		The "*" in the query strings are replaced by "%".
+		"""
+		
+		#-- Get a list of complete matches
+		
+		sql = "SELECT id_entry FROM `%s` WHERE 1" % self._protect(self.search_table)
+		
+		if q.author_names is not None and len(q.author_names)!=0:
+			sql += " AND author LIKE '%s'" % self._protect("%".join(q.author_names))
+		
+		if q.year is not None:
+			sql += " AND year=%d" % q.year
+		
+		if q.journal is not None:
+			sql += " AND journal LIKE '%%%s%%'" % self._protect(q.journal)
+		
+		sql += " LIMIT %d" % limit
+		
+		ids_main, = self._query(sql)
+		limit = limit-len(ids_main)
+		
+		if limit<=0:
+			return [self.getEntry(x) for x in ids_main], []
+		
+		#-- Get a list of partial matches
 		
 		sql = list()
 		
 		for i, a in enumerate(q.author_names):
+			
+			a = a.replace("*", "%")
+			
 			if i==0:
-				rank_multiplier = 2
+				rank = q.RANK['firstauthor']
 			else:
-				rank_multiplier = 1
-			sql.append("SELECT id_entry, %d*%d AS `rank` FROM `%s` WHERE author LIKE '%s'" %
-			           (self._protect(q.RANK['author']), rank_multiplier, self.search_table, self._protect(a.replace('*', '%'))))
+				rank = q.RANK['author']
+			sql.append("SELECT id_entry, %f AS `rank` FROM `%s` WHERE author LIKE '%s'" %
+			           (rank, self._protect(self.search_table), self._protect(a)))
+		
+		if q.n_authors<0:
+			sql.append("SELECT id_entry, %f AS `rank` FROM `%s` WHERE n_authors>=%d" % (q.RANK['number_of_authors'], self._protect(self.search_table), -q.n_authors))
+		else:
+			sql.append("SELECT id_entry, %f AS `rank` FROM `%s` WHERE n_authors=%d" % (q.RANK['number_of_authors'], self._protect(self.search_table), q.n_authors))
+		
+		if q.year is not None:
+			sql.append("SELECT id_entry, %f AS `rank` FROM `%s` WHERE year=%d" % (q.RANK['year'], self._protect(self.search_table), q.year))
+		
+		if q.journal is not None:
+			sql.append("SELECT id_entry, %f AS `rank` FROM `%s` WHERE journal LIKE '%%%s%%'" % (q.RANK['journal'], self._protect(self.search_table), q.year))
+		
+		sql = "\n\nUNION ALL\n\n".join(sql)
+		
+		sql = "SELECT id_entry, SUM(rank) AS rank FROM (\n%s\n) AS t WHERE id_entry NOT IN(%s) GROUP BY id_entry ORDER BY rank DESC LIMIT %d" % (sql, ", ".join([str(x) for x in ids_main]), limit)
+		
+		ids_cmpl, ranks = self._query(sql)
+		
+		return [self.getEntry(x) for x in ids_main], [self.getEntry(x) for x in ids_cmpl]
 	
-	def createTables(self):
-		"""**Abstract** Create the tables. Wipe them if already exist."""
-		raise NotImplementedError()
+	def createTables(self, wipe=False):
+		"""Create the tables. Wipe them if already exists and `wipe`=``True``."""
+		
+		sql = """
+		  CREATE TABLE IF NOT EXISTS `%s` (
+		    `id_entry` INT NOT NULL AUTO_INCREMENT,
+		    `cite_ref` VARCHAR( 256 ) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL ,
+		    `type` VARCHAR( 256 ) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL ,
+		    `title` TEXT NOT NULL ,
+		    `author` TEXT NOT NULL ,
+		    `year` INT NOT NULL ,
+		    `creation_date` DATETIME NOT NULL ,
+		    UNIQUE KEY (`id_entry`),
+		    UNIQUE KEY (`cite_ref`(32))
+		  ) ENGINE = MYISAM CHARACTER SET utf8 COLLATE utf8_general_ci 
+		  """ % self._protect(self.entry_table)
+		if self._query(sql)==False:
+			return False, self.last_query, self.last_query_exception
+		
+		sql = """
+		  CREATE TABLE IF NOT EXISTS `%s` (
+		    `id_field` INT NOT NULL AUTO_INCREMENT,
+		    `id_entry` INT NOT NULL, `field_name` TEXT CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL,
+		    `field_value` TEXT CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL,
+		    UNIQUE KEY (`id_field`)
+		  ) ENGINE = MyISAM CHARACTER SET utf8 COLLATE utf8_general_ci
+		  """ % self._protect(self.field_table)
+		if self._query(sql)==False:
+			return False, self.last_query, self.last_query_exception
+		
+		sql = """
+		  CREATE TABLE IF NOT EXISTS `%s` (
+		    `id_journal` INT NOT NULL AUTO_INCREMENT ,
+		    `iso` TEXT CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL ,
+		    `long` TEXT CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL ,
+		    `pubmed` TEXT CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL ,
+		    `short` TEXT CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL ,
+		    UNIQUE KEY ( `id_journal` ),
+		    INDEX ( `iso` ( 128 ) )
+		  ) ENGINE = MYISAM CHARACTER SET utf8 COLLATE utf8_general_ci
+		  """ % self._protect(self.journal_table)
+		if self._query(sql)==False:
+			return False, self.last_query, self.last_query_exception
+		
+		sql = """
+		  CREATE TABLE IF NOT EXISTS `%s` (
+		    `id_search` INT NOT NULL AUTO_INCREMENT ,
+		    `id_entry` INT NOT NULL,
+		    `author` TEXT CHARACTER SET utf8 COLLATE utf8_general_ci NULL,
+		    `n_author` INT NULL,
+		    `year` INT NULL,
+		    `journal` TEXT CHARACTER SET utf8 COLLATE utf8_general_ci NULL,
+		    UNIQUE KEY ( `id_search` ),
+		    INDEX (`id_entry`)
+		  ) ENGINE = MYISAM CHARACTER SET utf8 COLLATE utf8_general_ci
+		  """ % self._protect(self.search_table)
+		if self._query(sql)==False:
+			return False, self.last_query, self.last_query_exception
+		
+		
 	
 	
 

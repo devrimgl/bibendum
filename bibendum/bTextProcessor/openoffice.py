@@ -82,7 +82,7 @@ class bridge(bTextProcessor._generic.bridge):
 			if self.doc.getImplementationName()!='SwXTextDocument':
 				raise TypeError('The active document is not of type Writer.')
 			
-		except Exception as e:
+		except Exception, e:
 			self.connected = False
 			return False, e
 		
@@ -361,7 +361,7 @@ class bridge(bTextProcessor._generic.bridge):
 			for f in field['fieldmaster'].DependentTextFields:
 				f.dispose()
 			field['fieldmaster'].dispose()
-		except Exception as e:
+		except Exception, e:
 			return False, e
 		
 		return True, None
