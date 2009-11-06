@@ -209,6 +209,23 @@ class database(bDatabase._generic.database):
 		
 		return id_entry, tuple()
 	
+	def backupEntry(self, id, reason):
+		"""Save an entry in the database by serializing an entry object as ``dict``."""
+		
+		e = self.getEntry(id)
+		serialized_entry, serialization_type = self.serializeEntry(e, method="python_repr")
+		
+		sql = """
+		  INSERT INTO `%s` SET
+		    `entry_data`='%s',
+		    `serialization`='%s',
+		    `reason`='%s',
+		    backup_date=NOW()
+		    """
+		args = (self.backup_table, serialized_entry, serialization_type)
+		self._query(sql, *args)
+		
+	
 	def deleteEntry(self, x):
 		"""Deletes an entry from the database. Actually all entries must be kept
 		in the backup database. `x` can be a database id, a cite_ref or a :class:`bBase.entry` object.
@@ -433,8 +450,12 @@ class database(bDatabase._generic.database):
 		return [self.getEntry(x) for x in ids_main], [self.getEntry(x) for x in ids_cmpl]
 	
 	def createTables(self, wipe=False):
-		"""Create the tables. Wipe them if already exists and `wipe`=``True``."""
+		"""Create the tables. Wipe them if already exists and `wipe`=``True``. Returns ``True, None, None`` in case
+		of success, or ``False``, the faulty query and exception otherwise."""
 		
+		if wipe:
+			if self._query("DROP TABLE IF EXISTS `%s`" % self._protect(self.entry_table))==False:
+				return False, self.last_query, self.last_query_exception
 		sql = """
 		  CREATE TABLE IF NOT EXISTS `%s` (
 		    `id_entry` INT NOT NULL AUTO_INCREMENT,
@@ -451,6 +472,9 @@ class database(bDatabase._generic.database):
 		if self._query(sql)==False:
 			return False, self.last_query, self.last_query_exception
 		
+		if wipe:
+			if self._query("DROP TABLE IF EXISTS `%s`" % self._protect(self.field_table))==False:
+				return False, self.last_query, self.last_query_exception
 		sql = """
 		  CREATE TABLE IF NOT EXISTS `%s` (
 		    `id_field` INT NOT NULL AUTO_INCREMENT,
@@ -462,6 +486,9 @@ class database(bDatabase._generic.database):
 		if self._query(sql)==False:
 			return False, self.last_query, self.last_query_exception
 		
+		if wipe:
+			if self._query("DROP TABLE IF EXISTS `%s`" % self._protect(self.journal_table))==False:
+				return False, self.last_query, self.last_query_exception
 		sql = """
 		  CREATE TABLE IF NOT EXISTS `%s` (
 		    `id_journal` INT NOT NULL AUTO_INCREMENT ,
@@ -476,6 +503,9 @@ class database(bDatabase._generic.database):
 		if self._query(sql)==False:
 			return False, self.last_query, self.last_query_exception
 		
+		if wipe:
+			if self._query("DROP TABLE IF EXISTS `%s`" % self._protect(self.search_table))==False:
+				return False, self.last_query, self.last_query_exception
 		sql = """
 		  CREATE TABLE IF NOT EXISTS `%s` (
 		    `id_search` INT NOT NULL AUTO_INCREMENT ,
@@ -491,7 +521,23 @@ class database(bDatabase._generic.database):
 		if self._query(sql)==False:
 			return False, self.last_query, self.last_query_exception
 		
+		if wipe:
+			if self._query("DROP TABLE IF EXISTS `%s`" % self._protect(self.backup_table))==False:
+				return False, self.last_query, self.last_query_exception
+		sql = """
+		  CREATE TABLE IF NOT EXISTS `%s`
+		  (
+		    `id_update` INT NOT NULL AUTO_INCREMENT,
+		    `entry_data` TEXT CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL,
+		    `field_data` TEXT CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL,
+		    `backup_date` DATETIME NOT NULL,
+		    `reason` VARCHAR( 16 ) NOT NULL,
+		    UNIQUE (`id_field`)
+		  ) ENGINE = MYISAM CHARACTER SET utf8 COLLATE utf8_general_ci
+		  """ % self._protect(self.backup_table)
+		if self._query(sql)==False:
+			return False, self.last_query, self.last_query_exception
 		
-	
+		return True, None, None
 	
 

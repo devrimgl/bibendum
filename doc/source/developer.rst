@@ -134,12 +134,14 @@ Access to the data is expected to be in UTF-8. Text searches are expected to be 
    +-----------------+--------------------------------+
    | `entry_data`    | ``text``                       |
    +-----------------+--------------------------------+
-   | `field_data`    | ``text``                       |
+   | `serialization` | ``text``                       |
    +-----------------+--------------------------------+
    | `backup_date`   | ``datetime``                   |
    +-----------------+--------------------------------+
    | `reason`        | ``char[16]``                   |
    +-----------------+--------------------------------+
+   
+   `serialization` contains a string indicating what type of serialization has been used.
 
 
 :obj:`Journals` -- Contains a list of journals in various formats
