@@ -26,6 +26,8 @@ Bibendum's developer documentation
 
 This part of the documentation explains the architecture of the Bibendum Reference Manager source code. The code is organized is different submodules.
 
+This is the documentation for $Revision$, $Date$.
+
 .. contents:: :depth: 3
 
 
